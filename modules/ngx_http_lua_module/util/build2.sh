@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-# this file is mostly meant to be used by the author himself.
+# this script is for developers only.
+# dependent on the ngx-build script from the nginx-devel-utils repostory:
+#   https://github.com/openresty/nginx-devel-utils/blob/master/ngx-build
+# the resulting nginx is located at ./work/nginx/sbin/nginx
 
 root=`pwd`
 version=${1:-1.4.1}
@@ -19,18 +22,19 @@ force=$2
             #--without-http_referer_module \
 
 time ngx-build $force $version \
+            --with-ipv6 \
             --with-cc-opt="-I$PCRE_INC" \
             --with-http_realip_module \
         --with-http_ssl_module \
             --add-module=$root/../ndk-nginx-module \
             --add-module=$root/../set-misc-nginx-module \
             --with-ld-opt="-L$PCRE_LIB -Wl,-rpath,$PCRE_LIB:$LIBDRIZZLE_LIB:/usr/local/lib" \
-            --with-http_spdy_module \
+            --with-http_v2_module \
             --without-mail_pop3_module \
             --without-mail_imap_module \
+            --with-http_image_filter_module \
             --without-mail_smtp_module \
             --without-http_upstream_ip_hash_module \
-            --without-http_empty_gif_module \
             --without-http_memcached_module \
             --without-http_auth_basic_module \
             --without-http_userid_module \
@@ -48,7 +52,6 @@ time ngx-build $force $version \
                 --with-http_gunzip_module \
           --with-select_module \
           --with-poll_module \
-          --with-rtsig_module \
                 $opts \
                 --with-debug
 

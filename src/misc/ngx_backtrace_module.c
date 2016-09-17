@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2010-2014 Alibaba Group Holding Limited
+ * Copyright (C) 2010-2015 Alibaba Group Holding Limited
  */
 
 
@@ -11,6 +11,14 @@
 
 
 #define NGX_BACKTRACE_DEFAULT_STACK_MAX_SIZE 30
+
+
+typedef struct {
+    int     signo;
+    char   *signame;
+    char   *name;
+    void  (*handler)(int signo);
+} ngx_signal_t;
 
 
 static char *ngx_backtrace_files(ngx_conf_t *cf, ngx_command_t *cmd,

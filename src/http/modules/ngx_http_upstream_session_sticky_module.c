@@ -299,7 +299,7 @@ ngx_http_session_sticky_get_cookie(ngx_http_request_t *r)
 {
     time_t                           now;
     u_char                          *p, *v, *vv, *st, *last, *end;
-    ngx_int_t                        diff, delimiter, legal, rc;
+    ngx_int_t                        diff, delimiter, legal;
     ngx_str_t                       *cookie;
     ngx_uint_t                       i;
     ngx_table_elt_t                **cookies;
@@ -533,11 +533,10 @@ finish:
         & (NGX_HTTP_SESSION_STICKY_PREFIX | NGX_HTTP_SESSION_STICKY_INDIRECT))
     {
         cookie->len -= (end - st);
+
         if (cookie->len == 0) {
-            rc = ngx_list_delete(&r->headers_in.headers, cookies[i]);
-            if (rc != NGX_OK) {
-                return NGX_ERROR;
-            }
+            cookies[i]->hash = 0;
+            return NGX_OK;
         }
 
         while (end < last) {
@@ -975,9 +974,9 @@ ngx_http_session_sticky_insert(ngx_http_request_t *r)
     set_cookie->value.len = ctx->sscf->cookie.len
                           + sizeof("=") - 1
                           + ctx->sid.len
-                          + sizeof(";Domain=") - 1
+                          + sizeof("; Domain=") - 1
                           + ctx->sscf->domain.len
-                          + sizeof(";Path=") - 1
+                          + sizeof("; Path=") - 1
                           + ctx->sscf->path.len;
 
     if (ctx->sscf->maxidle != NGX_CONF_UNSET) {
@@ -987,8 +986,10 @@ ngx_http_session_sticky_insert(ngx_http_request_t *r)
                               + 2; /* '|' and '|' */
     } else {
         set_cookie->value.len = set_cookie->value.len
-                              + sizeof(";Max-Age=") - 1
-                              + ctx->sscf->maxage.len;
+                              + sizeof("; Max-Age=") - 1
+                              + ctx->sscf->maxage.len
+                              + sizeof("; Expires=") - 1
+                              + sizeof("Xxx, 00-Xxx-00 00:00:00 GMT") - 1;
     }
 
     p = ngx_pnalloc(r->pool, set_cookie->value.len);
@@ -1008,16 +1009,20 @@ ngx_http_session_sticky_insert(ngx_http_request_t *r)
         p = ngx_cpymem(p, ctx->s_firstseen.data, ctx->s_firstseen.len);
     }
     if (ctx->sscf->domain.len) {
-        p = ngx_cpymem(p, ";Domain=", sizeof(";Domain=") - 1);
+        p = ngx_cpymem(p, "; Domain=", sizeof("; Domain=") - 1);
         p = ngx_cpymem(p, ctx->sscf->domain.data, ctx->sscf->domain.len);
     }
     if (ctx->sscf->path.len) {
-        p = ngx_cpymem(p, ";Path=", sizeof(";Path=") - 1);
+        p = ngx_cpymem(p, "; Path=", sizeof("; Path=") - 1);
         p = ngx_cpymem(p, ctx->sscf->path.data, ctx->sscf->path.len);
     }
     if (ctx->sscf->maxidle == NGX_CONF_UNSET && ctx->sscf->maxage.len) {
-        p = ngx_cpymem(p, ";Max-Age=", sizeof(";Max-Age=") - 1);
+        p = ngx_cpymem(p, "; Max-Age=", sizeof("; Max-Age=") - 1);
         p = ngx_cpymem(p, ctx->sscf->maxage.data, ctx->sscf->maxage.len);
+        p = ngx_cpymem(p, "; Expires=", sizeof("; Expires=") - 1);
+        ngx_uint_t maxage = ngx_atoi(ctx->sscf->maxage.data,
+                                      ctx->sscf->maxage.len);
+        p = ngx_http_cookie_time(p, ngx_time() + maxage);
     }
 
     set_cookie->value.len = p - set_cookie->value.data;
